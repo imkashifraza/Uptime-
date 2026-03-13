@@ -16,6 +16,27 @@ args = ["sh", "-c", "CI=true pnpm prune --prod && pnpm store prune"]
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "RazaMonitor"
+
+[[workflows.workflow]]
+name = "RazaMonitor"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd raza-monitor && PORT=3000 node server.js"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true

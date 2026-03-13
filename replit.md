@@ -1,5 +1,24 @@
 # Workspace
 
+## RazaMonitor (Standalone App — raza-monitor/)
+
+Full-stack uptime monitoring app, ready for Vercel deployment.
+
+- **Location**: `raza-monitor/` folder
+- **Tech**: Express.js + Upstash Redis + Nodemailer (Gmail SMTP)
+- **Frontend**: `raza-monitor/public/index.html` (single file, dark UI)
+- **Backend**: `raza-monitor/server.js` (all API routes, credentials hardcoded)
+- **Deploy**: `raza-monitor/vercel.json` configured with cron job (every 5 min)
+- **Cron Secret**: `razamonitor-cron-2024`
+
+### Vercel Deploy Steps
+1. Push `raza-monitor/` contents to a GitHub repo
+2. vercel.com → New Project → Import repo → Framework: Other
+3. Deploy (no env vars needed — all hardcoded)
+
+---
+
+
 ## Overview
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.

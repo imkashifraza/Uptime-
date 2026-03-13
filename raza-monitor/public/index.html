@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RazaMonitor — Real Uptime Monitoring</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080b12;--card:#111827;--card2:#1a2235;--border:#1f2d45;
+  --green:#00ff88;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+  --text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;
+  --font:'Sora',sans-serif;--mono:'Space Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+a{color:var(--green);text-decoration:none}
+button{cursor:pointer;font-family:var(--font);border:none;outline:none}
+input,select,textarea{font-family:var(--font)}
+
+/* NAVBAR */
+.navbar{background:rgba(8,11,18,.95);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse-dot 2s infinite}
+.logo-text{font-size:1.3rem;font-weight:700;letter-spacing:-0.5px}
+.logo-text span{color:var(--green)}
+.nav-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.last-check{font-size:.75rem;color:var(--muted);font-family:var(--mono)}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:8px;font-size:.85rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--green);color:#080b12;font-weight:700}
+.btn-primary:hover{background:#00cc6e;transform:translateY(-1px)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-sm{padding:5px 10px;font-size:.78rem}
+.btn-icon{background:transparent;border:1px solid var(--border);color:var(--muted2);padding:6px 10px;border-radius:6px;font-size:.8rem}
+.btn-icon:hover{color:var(--text);border-color:var(--green)}
+
+/* STATS BAR */
+.stats-bar{padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.stat-pill{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;display:flex;flex-direction:column;align-items:center;min-width:90px}
+.stat-pill .val{font-size:1.5rem;font-weight:700;font-family:var(--mono);line-height:1}
+.stat-pill .lbl{font-size:.7rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+.stat-pill.up .val{color:var(--green)}
+.stat-pill.down .val{color:var(--red)}
+.stat-pill.paused .val{color:var(--yellow)}
+.overall-status{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:20px;font-size:.82rem;font-weight:600;border:1px solid}
+.overall-status.all-up{border-color:var(--green);color:var(--green);background:rgba(0,255,136,.07)}
+.overall-status.has-down{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.07)}
+.pulse-dot{width:8px;height:8px;border-radius:50%;animation:pulse-dot 1.5s infinite}
+.pulse-dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.pulse-dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+.pulse-dot.yellow{background:var(--yellow)}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{padding:14px 20px;font-size:.85rem;font-weight:500;color:var(--muted);background:transparent;border:none;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+
+/* MAIN */
+.main{padding:24px;max-width:1200px;margin:0 auto}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* ADD FORM */
+.add-form{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px;display:none}
+.add-form.open{display:block}
+.form-title{font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--text)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group label{font-size:.78rem;color:var(--muted2);font-weight:500}
+.form-group input,.form-group select{background:#0f1826;border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:.85rem;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--green)}
+.form-group select option{background:#0f1826}
+.form-actions{display:flex;gap:10px}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:6px 14px;border-radius:20px;font-size:.78rem;font-weight:500;background:var(--card);border:1px solid var(--border);color:var(--muted2);transition:all .2s}
+.filter-btn.active,.filter-btn:hover{border-color:var(--green);color:var(--green)}
+.search-input{flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.82rem;font-family:var(--font)}
+.search-input:focus{outline:none;border-color:var(--green)}
+
+/* MONITOR GRID */
+.monitors-grid{display:grid;gap:14px}
+
+/* MONITOR CARD */
+.monitor-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .2s}
+.monitor-card:hover{border-color:rgba(0,255,136,.3)}
+.monitor-card.down{border-color:rgba(239,68,68,.3)}
+.card-header{padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer}
+.card-pulse{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.card-pulse.up{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse-dot 2s infinite}
+.card-pulse.down{background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse-dot 1s infinite}
+.card-pulse.paused{background:var(--yellow)}
+.card-pulse.checking{background:var(--blue);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.card-info{flex:1;min-width:0}
+.card-name{font-weight:600;font-size:.95rem;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-url{font-size:.75rem;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap}
+.badge{padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;letter-spacing:.05em}
+.badge.up{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.badge.down{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.badge.paused{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
+.badge.checking{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.card-uptime{font-size:.82rem;font-family:var(--mono);color:var(--muted2)}
+.card-uptime span{color:var(--green);font-weight:700}
+.card-response{font-size:.82rem;font-family:var(--mono);color:var(--muted2)}
+.card-response span{color:var(--text);font-weight:700}
+.mini-bars{display:flex;gap:2px;align-items:flex-end;height:24px}
+.mini-bar{width:5px;border-radius:2px;transition:height .3s}
+
+/* EXPANDED */
+.card-expanded{display:none;padding:0 18px 18px;border-top:1px solid var(--border)}
+.card-expanded.open{display:block}
+.expanded-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:14px 0}
+.exp-stat{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.exp-stat .ev{font-size:1.1rem;font-weight:700;font-family:var(--mono);color:var(--green)}
+.exp-stat .el{font-size:.72rem;color:var(--muted);margin-top:3px}
+.history-bars{display:flex;gap:3px;align-items:flex-end;height:50px;margin:14px 0}
+.h-bar{flex:1;border-radius:2px 2px 0 0;min-height:4px;transition:height .3s;cursor:pointer;position:relative}
+.h-bar:hover::after{content:attr(data-tip);position:absolute;bottom:110%;left:50%;transform:translateX(-50%);background:#1a2235;border:1px solid var(--border);padding:4px 8px;border-radius:6px;font-size:.7rem;white-space:nowrap;pointer-events:none;z-index:10;color:var(--text)}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.edit-row{display:flex;gap:8px;margin-top:12px}
+.edit-row input{flex:1;background:#0f1826;border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.83rem;font-family:var(--mono)}
+.edit-row input:focus{outline:none;border-color:var(--green)}
+
+/* INCIDENTS */
+.incidents-list{display:grid;gap:10px}
+.incident-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.incident-card.ongoing{border-color:rgba(239,68,68,.3)}
+.incident-icon{font-size:1.4rem}
+.incident-info{flex:1;min-width:0}
+.incident-name{font-weight:600;font-size:.9rem;margin-bottom:3px}
+.incident-url{font-size:.75rem;color:var(--muted);font-family:var(--mono)}
+.incident-time{font-size:.75rem;color:var(--muted2);margin-top:3px}
+.incident-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.inc-badge{padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700}
+.inc-badge.ongoing{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.inc-badge.resolved{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.2)}
+.inc-duration{font-size:.75rem;color:var(--muted2);font-family:var(--mono)}
+.incidents-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+
+/* ANALYTICS */
+.analytics-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.ana-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.ana-card .icon{font-size:1.6rem;margin-bottom:10px}
+.ana-card .av{font-size:1.8rem;font-weight:700;font-family:var(--mono);margin-bottom:4px}
+.ana-card .al{font-size:.78rem;color:var(--muted)}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.chart-title{font-size:.9rem;font-weight:600;margin-bottom:16px}
+.chart-bars{display:flex;gap:4px;align-items:flex-end;height:120px;overflow-x:auto}
+.ch-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:28px}
+.ch-bar{width:20px;border-radius:3px 3px 0 0;transition:height .5s}
+.ch-label{font-size:.6rem;color:var(--muted);font-family:var(--mono)}
+
+/* ALERTS */
+.alerts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.alert-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.alert-card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.alert-icon{font-size:1.4rem}
+.alert-name{font-weight:600;font-size:.95rem}
+.alert-status{font-size:.72rem;padding:2px 8px;border-radius:10px}
+.alert-status.active{background:rgba(0,255,136,.1);color:var(--green)}
+.alert-status.inactive{background:rgba(100,116,139,.15);color:var(--muted)}
+.alert-desc{font-size:.78rem;color:var(--muted);line-height:1.5}
+
+/* STATUS PAGE */
+.status-preview{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:600px}
+.status-header{margin-bottom:20px}
+.status-overall{display:flex;align-items:center;gap:10px;padding:14px;border-radius:10px;margin-bottom:20px}
+.status-overall.op{background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2)}
+.status-overall.deg{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2)}
+.status-monitors{display:grid;gap:8px}
+.status-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2);border-radius:8px}
+.status-name{font-size:.85rem;font-weight:500}
+.status-uptime{font-size:.78rem;font-family:var(--mono);color:var(--muted2)}
+.copy-url-row{display:flex;gap:10px;margin-top:20px;align-items:center;flex-wrap:wrap}
+.copy-url-row input{flex:1;background:#0f1826;border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--muted2);font-size:.8rem;font-family:var(--mono)}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:60px 20px}
+.empty-icon{font-size:3rem;margin-bottom:12px;opacity:.4}
+.empty-text{color:var(--muted);font-size:.9rem}
+
+/* TOAST */
+#toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.toast{padding:12px 18px;border-radius:10px;font-size:.85rem;font-weight:500;display:flex;align-items:center;gap:8px;animation:slide-in .3s ease;border:1px solid;max-width:340px}
+.toast.success{background:#0f2a1a;color:var(--green);border-color:rgba(0,255,136,.3)}
+.toast.error{background:#2a0f0f;color:var(--red);border-color:rgba(239,68,68,.3)}
+.toast.info{background:#0f1a2a;color:var(--blue);border-color:rgba(59,130,246,.3)}
+@keyframes slide-in{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
+/* LOADING */
+.loading{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,255,136,.3);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite}
+
+/* SECTION HEADER */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.section-title{font-size:1.1rem;font-weight:600}
+
+/* RESPONSIVE */
+@media(max-width:640px){
+  .navbar{padding:0 14px;height:56px}
+  .logo-text{font-size:1.1rem}
+  .main{padding:14px}
+  .stats-bar{padding:12px 14px;gap:10px}
+  .tabs{padding:0 14px}
+  .tab-btn{padding:12px 14px;font-size:.8rem}
+  .card-header{padding:14px}
+  .card-meta{gap:8px}
+  .nav-right{gap:8px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <div class="logo-text">Raza<span>Monitor</span></div>
+  </div>
+  <div class="nav-right">
+    <span class="last-check" id="last-check-time">—</span>
+    <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Export</button>
+    <button class="btn btn-primary btn-sm" onclick="toggleAddForm()">+ Add Monitor</button>
+  </div>
+</nav>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-pill"><div class="val" id="stat-total">—</div><div class="lbl">Total</div></div>
+  <div class="stat-pill up"><div class="val" id="stat-up">—</div><div class="lbl">Up</div></div>
+  <div class="stat-pill down"><div class="val" id="stat-down">—</div><div class="lbl">Down</div></div>
+  <div class="stat-pill paused"><div class="val" id="stat-paused">—</div><div class="lbl">Paused</div></div>
+  <div class="stat-pill"><div class="val" id="stat-uptime">—</div><div class="lbl">Avg Uptime</div></div>
+  <div class="overall-status all-up" id="overall-status">
+    <div class="pulse-dot green" id="overall-dot"></div>
+    <span id="overall-text">Loading…</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('monitors',this)">📡 Monitors</button>
+  <button class="tab-btn" onclick="switchTab('incidents',this)">🚨 Incidents</button>
+  <button class="tab-btn" onclick="switchTab('analytics',this)">📊 Analytics</button>
+  <button class="tab-btn" onclick="switchTab('alerts',this)">🔔 Alerts</button>
+  <button class="tab-btn" onclick="switchTab('statuspage',this)">🌐 Status Page</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ADD MONITOR FORM -->
+  <div class="add-form" id="add-form">
+    <div class="form-title">➕ Add New Monitor</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Monitor Name</label>
+        <input type="text" id="f-name" placeholder="My Website"/>
+      </div>
+      <div class="form-group">
+        <label>URL</label>
+        <input type="url" id="f-url" placeholder="https://example.com"/>
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="f-type">
+          <option value="HTTP">HTTP</option>
+          <option value="KEYWORD">KEYWORD</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Interval (minutes)</label>
+        <select id="f-interval">
+          <option value="1">1 min</option>
+          <option value="5" selected>5 min</option>
+          <option value="10">10 min</option>
+          <option value="30">30 min</option>
+          <option value="60">60 min</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Alert Email (optional)</label>
+        <input type="email" id="f-email" placeholder="alerts@example.com"/>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addMonitor()">Add Monitor</button>
+      <button class="btn btn-outline" onclick="toggleAddForm()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MONITORS TAB -->
+  <div class="tab-content active" id="tab-monitors">
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('up',this)">🟢 Up</button>
+      <button class="filter-btn" onclick="setFilter('down',this)">🔴 Down</button>
+      <button class="filter-btn" onclick="setFilter('paused',this)">⏸ Paused</button>
+      <input class="search-input" id="search-input" type="text" placeholder="Search monitors…" oninput="renderMonitors()"/>
+    </div>
+    <div class="monitors-grid" id="monitors-list"></div>
+  </div>
+
+  <!-- INCIDENTS TAB -->
+  <div class="tab-content" id="tab-incidents">
+    <div class="incidents-toolbar">
+      <div class="section-title">Incident History</div>
+      <button class="btn btn-outline btn-sm" onclick="clearIncidents()">🗑 Clear All</button>
+    </div>
+    <div class="incidents-list" id="incidents-list"></div>
+  </div>
+
+  <!-- ANALYTICS TAB -->
+  <div class="tab-content" id="tab-analytics">
+    <div class="analytics-cards" id="analytics-cards"></div>
+    <div class="chart-card">
+      <div class="chart-title">Response Time — Last 30 Checks (per monitor)</div>
+      <div id="analytics-chart"></div>
+    </div>
+  </div>
+
+  <!-- ALERTS TAB -->
+  <div class="tab-content" id="tab-alerts">
+    <div class="section-header">
+      <div class="section-title">Alert Channels</div>
+    </div>
+    <div class="alerts-grid">
+      <div class="alert-card">
+        <div class="alert-card-header">
+          <div class="alert-icon">📧</div>
+          <div><div class="alert-name">Email (Gmail)</div><div class="alert-status active">Active</div></div>
+        </div>
+        <div class="alert-desc">Alerts are sent to the email you add per monitor. Gmail SMTP is configured and ready.</div>
+      </div>
+      <div class="alert-card">
+        <div class="alert-card-header">
+          <div class="alert-icon">💬</div>
+          <div><div class="alert-name">Slack</div><div class="alert-status inactive">Coming Soon</div></div>
+        </div>
+        <div class="alert-desc">Slack webhook integration — add your webhook URL to server.js to enable.</div>
+      </div>
+      <div class="alert-card">
+        <div class="alert-card-header">
+          <div class="alert-icon">📱</div>
+          <div><div class="alert-name">Telegram</div><div class="alert-status inactive">Coming Soon</div></div>
+        </div>
+        <div class="alert-desc">Telegram bot alerts — configure bot token and chat ID in server.js.</div>
+      </div>
+      <div class="alert-card">
+        <div class="alert-card-header">
+          <div class="alert-icon">🔗</div>
+          <div><div class="alert-name">Webhook</div><div class="alert-status inactive">Coming Soon</div></div>
+        </div>
+        <div class="alert-desc">Custom HTTP webhook on every status change. POST JSON payload.</div>
+      </div>
+      <div class="alert-card">
+        <div class="alert-card-header">
+          <div class="alert-icon">🎮</div>
+          <div><div class="alert-name">Discord</div><div class="alert-status inactive">Coming Soon</div></div>
+        </div>
+        <div class="alert-desc">Discord webhook — drop webhook URL to enable rich embed alerts.</div>
+      </div>
+      <div class="alert-card">
+        <div class="alert-card-header">
+          <div class="alert-icon">📲</div>
+          <div><div class="alert-name">SMS</div><div class="alert-status inactive">Coming Soon</div></div>
+        </div>
+        <div class="alert-desc">SMS via Twilio — configure account SID and auth token in server.js.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS PAGE TAB -->
+  <div class="tab-content" id="tab-statuspage">
+    <div class="section-header">
+      <div class="section-title">Public Status Page</div>
+    </div>
+    <div class="status-preview">
+      <div class="status-header">
+        <div style="font-size:1.3rem;font-weight:700;margin-bottom:4px">RazaMonitor Status</div>
+        <div style="font-size:.8rem;color:var(--muted)">Live system status</div>
+      </div>
+      <div class="status-overall op" id="status-overall-row">
+        <div class="pulse-dot green"></div>
+        <span id="status-overall-label">All systems operational</span>
+      </div>
+      <div class="status-monitors" id="status-monitors-list"></div>
+      <div class="copy-url-row">
+        <input type="text" id="status-url-input" readonly/>
+        <button class="btn btn-outline btn-sm" onclick="copyStatusUrl()">📋 Copy URL</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let monitors = [];
+let incidents = [];
+let currentFilter = 'all';
+let refreshTimer = null;
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadAll();
+  refreshTimer = setInterval(() => loadAll(), 30000);
+  document.getElementById('status-url-input').value = window.location.origin + '/api/status';
+});
+
+async function loadAll() {
+  await Promise.all([loadMonitors(), loadStats(), loadIncidents()]);
+  renderAnalytics();
+  renderStatusPage();
+  document.getElementById('last-check-time').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+// ─── MONITORS ─────────────────────────────────────────────────────────────────
+async function loadMonitors() {
+  try {
+    const res = await fetch('/api/monitors');
+    monitors = await res.json();
+    renderMonitors();
+  } catch (e) {
+    showToast('Failed to load monitors', 'error');
+  }
+}
+
+function renderMonitors() {
+  const container = document.getElementById('monitors-list');
+  const search = document.getElementById('search-input').value.toLowerCase();
+  let filtered = monitors.filter(m => {
+    if (currentFilter === 'up'     && m.status !== 'up')     return false;
+    if (currentFilter === 'down'   && m.status !== 'down')   return false;
+    if (currentFilter === 'paused' && !m.paused)             return false;
+    if (search && !m.name.toLowerCase().includes(search) && !m.url.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📡</div><div class="empty-text">${monitors.length === 0 ? 'No monitors yet. Add your first one!' : 'No monitors match your filter.'}</div></div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(m => buildMonitorCard(m)).join('');
+}
+
+function buildMonitorCard(m) {
+  const statusClass = m.paused ? 'paused' : (m.status || 'checking');
+  const badgeText   = m.paused ? 'PAUSED' : (m.status || 'CHECKING').toUpperCase();
+  const bars = buildMiniBars(m.history || []);
+  const historyBars = buildHistoryBars(m.history || []);
+
+  const avgRes = m.history && m.history.length > 0
+    ? Math.round(m.history.reduce((s,h) => s + (h.response||0), 0) / m.history.length)
+    : 0;
+  const minRes = m.history && m.history.length > 0
+    ? Math.min(...m.history.map(h => h.response||0).filter(v => v > 0))
+    : 0;
+  const maxRes = m.history && m.history.length > 0
+    ? Math.max(...m.history.map(h => h.response||0))
+    : 0;
+
+  return `
+  <div class="monitor-card ${m.status === 'down' ? 'down' : ''}" id="card-${m.id}">
+    <div class="card-header" onclick="toggleExpand('${m.id}')">
+      <div class="card-pulse ${statusClass}"></div>
+      <div class="card-info">
+        <div class="card-name">${esc(m.name)}</div>
+        <div class="card-url">${esc(m.url)}</div>
+      </div>
+      <div class="card-meta">
+        <span class="badge ${statusClass}">${badgeText}</span>
+        <span class="card-uptime">Uptime <span>${(m.uptime||100).toFixed(1)}%</span></span>
+        <span class="card-response">${m.lastResponse > 0 ? `<span>${m.lastResponse}ms</span>` : '<span style="color:var(--muted)">—</span>'}</span>
+        <div class="mini-bars">${bars}</div>
+      </div>
+    </div>
+    <div class="card-expanded" id="expanded-${m.id}">
+      <div class="expanded-grid">
+        <div class="exp-stat"><div class="ev">${avgRes > 0 ? avgRes+'ms' : '—'}</div><div class="el">Avg Response</div></div>
+        <div class="exp-stat"><div class="ev">${minRes > 0 ? minRes+'ms' : '—'}</div><div class="el">Min Response</div></div>
+        <div class="exp-stat"><div class="ev">${maxRes > 0 ? maxRes+'ms' : '—'}</div><div class="el">Max Response</div></div>
+        <div class="exp-stat"><div class="ev">${m.checks || 0}</div><div class="el">Total Checks</div></div>
+        <div class="exp-stat"><div class="ev">${m.lastStatusCode || '—'}</div><div class="el">Last HTTP Code</div></div>
+        <div class="exp-stat"><div class="ev">${m.lastChecked ? timeAgo(m.lastChecked) : '—'}</div><div class="el">Last Checked</div></div>
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px">Last 30 checks history:</div>
+      <div class="history-bars">${historyBars}</div>
+      <div class="edit-row">
+        <input type="text" id="edit-url-${m.id}" value="${esc(m.url)}" placeholder="New URL"/>
+        <button class="btn btn-outline btn-sm" onclick="updateUrl('${m.id}')">Save URL</button>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline btn-sm" id="check-btn-${m.id}" onclick="checkMonitor('${m.id}')">🔍 Check Now</button>
+        <button class="btn btn-outline btn-sm" onclick="togglePause('${m.id}')">${m.paused ? '▶ Resume' : '⏸ Pause'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMonitor('${m.id}')">🗑 Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildMiniBars(history) {
+  if (!history || history.length === 0) return '<div style="color:var(--muted);font-size:.7rem">no data</div>';
+  const last = history.slice(-10);
+  const maxR  = Math.max(...last.map(h => h.response||1), 1);
+  return last.map(h => {
+    const color = h.status === 'up' ? 'var(--green)' : 'var(--red)';
+    const ht    = h.response > 0 ? Math.max(4, Math.round((h.response / maxR) * 22)) : 4;
+    return `<div class="mini-bar" style="height:${ht}px;background:${color}"></div>`;
+  }).join('');
+}
+
+function buildHistoryBars(history) {
+  if (!history || history.length === 0) return '<div style="color:var(--muted);font-size:.75rem;padding:10px">No history yet</div>';
+  const maxR = Math.max(...history.map(h => h.response||1), 1);
+  return history.map(h => {
+    const color = h.status === 'up' ? 'var(--green)' : 'var(--red)';
+    const ht    = h.response > 0 ? Math.max(4, Math.round((h.response / maxR) * 48)) : 4;
+    const tip   = `${h.status.toUpperCase()} | ${h.response}ms | ${new Date(h.time).toLocaleTimeString()}`;
+    return `<div class="h-bar" style="height:${ht}px;background:${color}" data-tip="${esc(tip)}"></div>`;
+  }).join('');
+}
+
+function toggleExpand(id) {
+  const el = document.getElementById('expanded-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+// ─── ADD MONITOR ──────────────────────────────────────────────────────────────
+function toggleAddForm() {
+  document.getElementById('add-form').classList.toggle('open');
+}
+
+async function addMonitor() {
+  const name  = document.getElementById('f-name').value.trim();
+  const url   = document.getElementById('f-url').value.trim();
+  const type  = document.getElementById('f-type').value;
+  const intv  = document.getElementById('f-interval').value;
+  const email = document.getElementById('f-email').value.trim();
+
+  if (!name || !url) return showToast('Name and URL required', 'error');
+  if (!url.startsWith('http://') && !url.startsWith('https://'))
+    return showToast('URL must start with http:// or https://', 'error');
+
+  try {
+    const res = await fetch('/api/monitors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, url, type, interval: parseInt(intv), alertEmail: email }),
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Failed', 'error');
+    showToast('Monitor added!', 'success');
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-url').value  = '';
+    document.getElementById('f-email').value = '';
+    toggleAddForm();
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ─── DELETE ───────────────────────────────────────────────────────────────────
+async function deleteMonitor(id) {
+  if (!confirm('Delete this monitor?')) return;
+  try {
+    await fetch('/api/monitors/' + id, { method: 'DELETE' });
+    showToast('Monitor deleted', 'info');
+    await loadAll();
+  } catch (e) {
+    showToast('Delete failed', 'error');
+  }
+}
+
+// ─── CHECK NOW ────────────────────────────────────────────────────────────────
+async function checkMonitor(id) {
+  const btn = document.getElementById('check-btn-' + id);
+  if (btn) { btn.innerHTML = '<span class="loading"></span> Checking…'; btn.disabled = true; }
+  try {
+    const res  = await fetch('/api/monitors/' + id + '/check');
+    const data = await res.json();
+    if (data.status === 'up')   showToast(`✅ UP — ${data.responseTime}ms`, 'success');
+    else if (data.status === 'down') showToast(`🔴 DOWN — ${data.error || 'No response'}`, 'error');
+    else showToast(data.message || 'Checked', 'info');
+    await loadAll();
+  } catch (e) {
+    showToast('Check failed', 'error');
+  } finally {
+    if (btn) { btn.innerHTML = '🔍 Check Now'; btn.disabled = false; }
+  }
+}
+
+// ─── PAUSE ────────────────────────────────────────────────────────────────────
+async function togglePause(id) {
+  try {
+    const res  = await fetch('/api/monitors/' + id + '/pause', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.paused ? 'Monitor paused' : 'Monitor resumed', 'info');
+    await loadAll();
+  } catch (e) {
+    showToast('Failed', 'error');
+  }
+}
+
+// ─── UPDATE URL ───────────────────────────────────────────────────────────────
+async function updateUrl(id) {
+  const newUrl = document.getElementById('edit-url-' + id).value.trim();
+  if (!newUrl) return showToast('URL cannot be empty', 'error');
+  const monitor = monitors.find(m => m.id === id);
+  if (!monitor) return;
+  monitor.url = newUrl;
+  try {
+    await fetch('/api/monitors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...monitor }),
+    });
+    showToast('URL updated', 'success');
+    await loadAll();
+  } catch (e) {
+    showToast('Update failed', 'error');
+  }
+}
+
+// ─── STATS ────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const res  = await fetch('/api/stats');
+    const data = await res.json();
+    document.getElementById('stat-total').textContent  = data.total  ?? 0;
+    document.getElementById('stat-up').textContent     = data.up     ?? 0;
+    document.getElementById('stat-down').textContent   = data.down   ?? 0;
+    document.getElementById('stat-paused').textContent = data.paused ?? 0;
+    document.getElementById('stat-uptime').textContent = (data.avgUptime ?? 0).toFixed(1) + '%';
+
+    const dot    = document.getElementById('overall-dot');
+    const text   = document.getElementById('overall-text');
+    const status = document.getElementById('overall-status');
+    if (data.down > 0) {
+      dot.className   = 'pulse-dot red';
+      text.textContent = `${data.down} monitor${data.down > 1 ? 's' : ''} down`;
+      status.className = 'overall-status has-down';
+    } else {
+      dot.className   = 'pulse-dot green';
+      text.textContent = 'All systems up';
+      status.className = 'overall-status all-up';
+    }
+  } catch(e) {}
+}
+
+// ─── INCIDENTS ────────────────────────────────────────────────────────────────
+async function loadIncidents() {
+  try {
+    const res = await fetch('/api/incidents');
+    incidents = await res.json();
+    renderIncidents();
+  } catch(e) {}
+}
+
+function renderIncidents() {
+  const container = document.getElementById('incidents-list');
+  if (!incidents || incidents.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No incidents — everything is running smoothly!</div></div>`;
+    return;
+  }
+  container.innerHTML = incidents.map(inc => `
+    <div class="incident-card ${inc.status === 'ongoing' ? 'ongoing' : ''}">
+      <div class="incident-icon">${inc.status === 'ongoing' ? '🔴' : '✅'}</div>
+      <div class="incident-info">
+        <div class="incident-name">${esc(inc.monitorName)}</div>
+        <div class="incident-url">${esc(inc.monitorUrl)}</div>
+        <div class="incident-time">Started: ${new Date(inc.startTime).toLocaleString()}${inc.endTime ? ' • Resolved: ' + new Date(inc.endTime).toLocaleString() : ''}</div>
+      </div>
+      <div class="incident-meta">
+        <span class="inc-badge ${inc.status}">${inc.status.toUpperCase()}</span>
+        <span class="inc-duration">${inc.duration || (inc.status === 'ongoing' ? 'Ongoing…' : '—')}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function clearIncidents() {
+  if (!confirm('Clear all incidents?')) return;
+  await fetch('/api/incidents', { method: 'DELETE' });
+  showToast('Incidents cleared', 'info');
+  await loadIncidents();
+}
+
+// ─── ANALYTICS ────────────────────────────────────────────────────────────────
+function renderAnalytics() {
+  const totalChecks   = monitors.reduce((s,m) => s + (m.checks||0), 0);
+  const avgUptime     = monitors.length > 0 ? (monitors.reduce((s,m) => s + (m.uptime||0), 0) / monitors.length).toFixed(1) : 0;
+  const avgResponse   = monitors.filter(m => m.lastResponse > 0).length > 0
+    ? Math.round(monitors.filter(m => m.lastResponse > 0).reduce((s,m) => s + m.lastResponse, 0) / monitors.filter(m => m.lastResponse > 0).length)
+    : 0;
+  const totalInc      = incidents.length;
+
+  document.getElementById('analytics-cards').innerHTML = `
+    <div class="ana-card"><div class="icon">🔍</div><div class="av" style="color:var(--blue)">${totalChecks.toLocaleString()}</div><div class="al">Total Checks</div></div>
+    <div class="ana-card"><div class="icon">📈</div><div class="av" style="color:var(--green)">${avgUptime}%</div><div class="al">Average Uptime</div></div>
+    <div class="ana-card"><div class="icon">⚡</div><div class="av" style="color:var(--yellow)">${avgResponse > 0 ? avgResponse+'ms' : '—'}</div><div class="al">Avg Response Time</div></div>
+    <div class="ana-card"><div class="icon">🚨</div><div class="av" style="color:var(--red)">${totalInc}</div><div class="al">Total Incidents</div></div>
+  `;
+
+  // Chart
+  const chartEl = document.getElementById('analytics-chart');
+  if (monitors.length === 0) { chartEl.innerHTML = '<div class="empty" style="padding:30px"><div class="empty-text">Add monitors to see charts</div></div>'; return; }
+
+  const html = monitors.map(m => {
+    if (!m.history || m.history.length === 0) return '';
+    const maxR = Math.max(...m.history.map(h => h.response||0), 1);
+    const bars = m.history.slice(-20).map((h, i) => {
+      const ht  = h.response > 0 ? Math.max(4, Math.round((h.response / maxR) * 110)) : 4;
+      const col = h.status === 'up' ? 'var(--green)' : 'var(--red)';
+      return `<div class="ch-bar-wrap"><div class="ch-bar" style="height:${ht}px;background:${col}" title="${h.response}ms"></div></div>`;
+    }).join('');
+    return `<div style="margin-bottom:20px"><div style="font-size:.8rem;font-weight:600;margin-bottom:8px;color:var(--muted2)">${esc(m.name)}</div><div class="chart-bars">${bars}</div></div>`;
+  }).join('');
+
+  chartEl.innerHTML = html || '<div class="empty" style="padding:30px"><div class="empty-text">No check data yet — run a check first</div></div>';
+}
+
+// ─── STATUS PAGE ──────────────────────────────────────────────────────────────
+function renderStatusPage() {
+  const allUp = monitors.length === 0 || monitors.every(m => m.status === 'up' || m.paused);
+  const overall = document.getElementById('status-overall-row');
+  const label   = document.getElementById('status-overall-label');
+  if (allUp) {
+    overall.className = 'status-overall op';
+    label.textContent = '✅ All systems operational';
+  } else {
+    overall.className = 'status-overall deg';
+    label.textContent = '⚠️ Some systems degraded';
+  }
+  document.getElementById('status-monitors-list').innerHTML = monitors.map(m => `
+    <div class="status-row">
+      <div>
+        <div class="status-name">${esc(m.name)}</div>
+        <div class="status-uptime">Uptime: ${(m.uptime||100).toFixed(1)}%</div>
+      </div>
+      <span class="badge ${m.paused ? 'paused' : (m.status||'checking')}">${(m.paused ? 'PAUSED' : (m.status||'checking')).toUpperCase()}</span>
+    </div>
+  `).join('') || '<div style="text-align:center;padding:20px;color:var(--muted);font-size:.85rem">No monitors added yet</div>';
+}
+
+// ─── FILTER ───────────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMonitors();
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportData() {
+  const data = { monitors, incidents, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'razamonitor-export.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data exported!', 'success');
+}
+
+// ─── COPY STATUS URL ─────────────────────────────────────────────────────────
+function copyStatusUrl() {
+  const input = document.getElementById('status-url-input');
+  input.select();
+  document.execCommand('copy');
+  showToast('URL copied!', 'success');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast     = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000)  return Math.round(diff/1000) + 's ago';
+  if (diff < 3600000) return Math.round(diff/60000) + 'm ago';
+  return Math.round(diff/3600000) + 'h ago';
+}
+</script>
+</body>
+</html>
