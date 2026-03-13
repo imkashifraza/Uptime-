@@ -90,6 +90,7 @@ router.post('/monitors', async (req, res) => {
     const monitor = { id, name, url, type, interval, alertEmail, status: 'checking', uptime: 100, lastResponse: 0, lastChecked: null, lastStatusCode: null, paused: false, history: [], checks: 0 };
     await redis.set(`monitor:${id}`, JSON.stringify(monitor));
     await redis.sadd('monitor_ids', id);
+    checkMonitor(monitor).catch(() => {});
     res.json(monitor);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
