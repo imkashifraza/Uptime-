@@ -1,17 +1,16 @@
-import { Router, type IRouter } from 'express';
+import { Router, type Request, type Response, type IRouter } from 'express';
 import { redis } from '../lib/redis';
-import { sendEmail, GMAIL_USER } from '../lib/mailer';
+import { sendEmail } from '../lib/mailer';
 
 const router: IRouter = Router();
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
 function parse(raw: unknown) {
   if (!raw) return null;
   return typeof raw === 'string' ? JSON.parse(raw) : raw;
 }
 
 async function allMonitors() {
-  const ids: string[] = (await redis.smembers('monitor_ids')) as string[];
+  const ids = (await redis.smembers('monitor_ids')) as string[];
   if (!ids?.length) return [];
   const monitors = await Promise.all(ids.map(id => redis.get(`monitor:${id}`).then(parse)));
   return monitors.filter(Boolean);
@@ -43,7 +42,6 @@ async function checkMonitor(monitor: any) {
   const updated = { ...monitor, status, uptime, lastResponse: responseTime, lastChecked: Date.now(), lastStatusCode: statusCode, history, checks: (monitor.checks || 0) + 1 };
   await redis.set(`monitor:${monitor.id}`, JSON.stringify(updated));
 
-  // ─ incident down ─
   if (prevStatus !== 'down' && status === 'down') {
     const incId = `inc_${Date.now()}`;
     await redis.set(`incident:${incId}`, JSON.stringify({ id: incId, monitorId: monitor.id, monitorName: monitor.name, monitorUrl: monitor.url, startTime: Date.now(), endTime: null, duration: null, status: 'ongoing', error: errorMsg, statusCode }));
@@ -54,9 +52,8 @@ async function checkMonitor(monitor: any) {
     }
   }
 
-  // ─ incident up ─
   if (prevStatus === 'down' && status === 'up') {
-    const incIds: string[] = (await redis.smembers('incident_ids')) as string[];
+    const incIds = (await redis.smembers('incident_ids')) as string[];
     for (const iid of incIds ?? []) {
       const inc: any = parse(await redis.get(`incident:${iid}`));
       if (inc?.monitorId === monitor.id && inc?.status === 'ongoing') {
@@ -76,16 +73,15 @@ async function checkMonitor(monitor: any) {
   return { status, responseTime, statusCode, uptime, error: errorMsg };
 }
 
-// ─── routes ───────────────────────────────────────────────────────────────────
-router.get('/monitors', async (_req, res) => {
+router.get('/monitors', async (_req: Request, res: Response): Promise<void> => {
   try { res.json(await allMonitors()); } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/monitors', async (req, res) => {
+router.post('/monitors', async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, url, type = 'HTTP', interval = 5, alertEmail = '' } = req.body;
-    if (!name || !url) return res.status(400).json({ error: 'name and url required' });
-    if (!url.startsWith('http://') && !url.startsWith('https://')) return res.status(400).json({ error: 'URL must start with http:// or https://' });
+    if (!name || !url) { res.status(400).json({ error: 'name and url required' }); return; }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) { res.status(400).json({ error: 'URL must start with http:// or https://' }); return; }
     const id = Date.now().toString();
     const monitor = { id, name, url, type, interval, alertEmail, status: 'checking', uptime: 100, lastResponse: 0, lastChecked: null, lastStatusCode: null, paused: false, history: [], checks: 0 };
     await redis.set(`monitor:${id}`, JSON.stringify(monitor));
@@ -95,12 +91,12 @@ router.post('/monitors', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/monitors/:id', async (req, res) => {
+router.delete('/monitors/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     await redis.del(`monitor:${id}`);
     await redis.srem('monitor_ids', id);
-    const incIds: string[] = (await redis.smembers('incident_ids')) as string[];
+    const incIds = (await redis.smembers('incident_ids')) as string[];
     for (const iid of incIds ?? []) {
       const inc: any = parse(await redis.get(`incident:${iid}`));
       if (inc?.monitorId === id) { await redis.del(`incident:${iid}`); await redis.srem('incident_ids', iid); }
@@ -109,10 +105,10 @@ router.delete('/monitors/:id', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/monitors/:id/pause', async (req, res) => {
+router.post('/monitors/:id/pause', async (req: Request, res: Response): Promise<void> => {
   try {
     const raw: any = parse(await redis.get(`monitor:${req.params.id}`));
-    if (!raw) return res.status(404).json({ error: 'Not found' });
+    if (!raw) { res.status(404).json({ error: 'Not found' }); return; }
     raw.paused = !raw.paused;
     raw.status = raw.paused ? 'paused' : 'checking';
     await redis.set(`monitor:${req.params.id}`, JSON.stringify(raw));
@@ -120,19 +116,19 @@ router.post('/monitors/:id/pause', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/monitors/:id/check', async (req, res) => {
+router.get('/monitors/:id/check', async (req: Request, res: Response): Promise<void> => {
   try {
     const monitor: any = parse(await redis.get(`monitor:${req.params.id}`));
-    if (!monitor) return res.status(404).json({ error: 'Not found' });
-    if (monitor.paused) return res.json({ status: 'paused', message: 'Monitor is paused' });
+    if (!monitor) { res.status(404).json({ error: 'Not found' }); return; }
+    if (monitor.paused) { res.json({ status: 'paused', message: 'Monitor is paused' }); return; }
     res.json(await checkMonitor(monitor));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/cron/check-all', async (req, res) => {
+router.get('/cron/check-all', async (req: Request, res: Response): Promise<void> => {
   try {
     const auth = req.headers['authorization'];
-    if (auth !== 'Bearer razamonitor-cron-2024') return res.status(401).json({ error: 'Unauthorized' });
+    if (auth !== 'Bearer razamonitor-cron-2024') { res.status(401).json({ error: 'Unauthorized' }); return; }
     const monitors = await allMonitors();
     const results = [];
     for (const m of monitors) {
@@ -142,27 +138,27 @@ router.get('/cron/check-all', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/incidents', async (_req, res) => {
+router.get('/incidents', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const ids: string[] = (await redis.smembers('incident_ids')) as string[];
-    if (!ids?.length) return res.json([]);
+    const ids = (await redis.smembers('incident_ids')) as string[];
+    if (!ids?.length) { res.json([]); return; }
     const incidents = await Promise.all(ids.map(id => redis.get(`incident:${id}`).then(parse)));
     res.json(incidents.filter(Boolean).sort((a: any, b: any) => b.startTime - a.startTime));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/incidents', async (_req, res) => {
+router.delete('/incidents', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const ids: string[] = (await redis.smembers('incident_ids')) as string[];
+    const ids = (await redis.smembers('incident_ids')) as string[];
     for (const id of ids ?? []) { await redis.del(`incident:${id}`); await redis.srem('incident_ids', id); }
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/stats', async (_req, res) => {
+router.get('/stats', async (_req: Request, res: Response): Promise<void> => {
   try {
     const monitors: any[] = await allMonitors();
-    if (!monitors.length) return res.json({ total: 0, up: 0, down: 0, paused: 0, avgUptime: 0 });
+    if (!monitors.length) { res.json({ total: 0, up: 0, down: 0, paused: 0, avgUptime: 0 }); return; }
     res.json({
       total: monitors.length,
       up: monitors.filter(m => m.status === 'up').length,
@@ -173,7 +169,7 @@ router.get('/stats', async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/status', async (_req, res) => {
+router.get('/status', async (_req: Request, res: Response): Promise<void> => {
   try {
     const monitors: any[] = await allMonitors();
     res.json({
@@ -183,6 +179,6 @@ router.get('/status', async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/ping', (_req, res) => res.json({ alive: true, time: new Date().toISOString() }));
+router.get('/ping', (_req: Request, res: Response): void => { res.json({ alive: true, time: new Date().toISOString() }); });
 
 export default router;
