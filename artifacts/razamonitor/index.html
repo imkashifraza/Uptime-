@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RazaMonitor — Real Uptime Monitoring</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080b12;--card:#111827;--card2:#1a2235;--border:#1f2d45;
+  --green:#00ff88;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+  --text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;
+  --font:'Sora',sans-serif;--mono:'Space Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+button{cursor:pointer;font-family:var(--font);border:none;outline:none}
+input,select{font-family:var(--font)}
+.navbar{background:rgba(8,11,18,.95);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse-dot 2s infinite}
+.logo-text{font-size:1.3rem;font-weight:700;letter-spacing:-0.5px}
+.logo-text span{color:var(--green)}
+.nav-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.last-check{font-size:.72rem;color:var(--muted);font-family:var(--mono)}
+.btn{padding:8px 16px;border-radius:8px;font-size:.85rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--green);color:#080b12;font-weight:700}
+.btn-primary:hover{background:#00cc6e;transform:translateY(-1px)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-sm{padding:5px 10px;font-size:.78rem}
+.stats-bar{padding:16px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.stat-pill{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;flex-direction:column;align-items:center;min-width:86px}
+.stat-pill .val{font-size:1.5rem;font-weight:700;font-family:var(--mono);line-height:1}
+.stat-pill .lbl{font-size:.68rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.stat-pill.up .val{color:var(--green)}
+.stat-pill.down .val{color:var(--red)}
+.stat-pill.paused .val{color:var(--yellow)}
+.overall-status{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:20px;font-size:.82rem;font-weight:600;border:1px solid}
+.overall-status.all-up{border-color:var(--green);color:var(--green);background:rgba(0,255,136,.07)}
+.overall-status.has-down{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.07)}
+.pulse-dot{width:8px;height:8px;border-radius:50%;animation:pulse-dot 1.5s infinite;flex-shrink:0}
+.pulse-dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.pulse-dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+.pulse-dot.yellow{background:var(--yellow)}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{padding:14px 20px;font-size:.85rem;font-weight:500;color:var(--muted);background:transparent;border:none;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.main{padding:24px;max-width:1200px;margin:0 auto}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.add-form{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px;display:none}
+.add-form.open{display:block}
+.form-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group label{font-size:.78rem;color:var(--muted2);font-weight:500}
+.form-group input,.form-group select{background:#0f1826;border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:.85rem;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--green)}
+.form-group select option{background:#0f1826}
+.form-actions{display:flex;gap:10px}
+.filter-bar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:6px 14px;border-radius:20px;font-size:.78rem;font-weight:500;background:var(--card);border:1px solid var(--border);color:var(--muted2);transition:all .2s;cursor:pointer}
+.filter-btn.active,.filter-btn:hover{border-color:var(--green);color:var(--green)}
+.search-input{flex:1;min-width:160px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.82rem}
+.search-input:focus{outline:none;border-color:var(--green)}
+.monitors-grid{display:grid;gap:14px}
+.monitor-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .2s}
+.monitor-card:hover{border-color:rgba(0,255,136,.3)}
+.monitor-card.is-down{border-color:rgba(239,68,68,.3)}
+.card-header{padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer}
+.card-pulse{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.card-pulse.up{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse-dot 2s infinite}
+.card-pulse.down{background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse-dot 1s infinite}
+.card-pulse.paused{background:var(--yellow)}
+.card-pulse.checking{background:var(--blue);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.card-info{flex:1;min-width:0}
+.card-name{font-weight:600;font-size:.95rem;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-url{font-size:.73rem;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.badge{padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.04em}
+.badge.up{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.badge.down{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.badge.paused{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
+.badge.checking{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.card-uptime{font-size:.8rem;font-family:var(--mono);color:var(--muted2)}
+.card-uptime span{color:var(--green);font-weight:700}
+.card-response span{font-weight:700;color:var(--text);font-family:var(--mono);font-size:.8rem}
+.mini-bars{display:flex;gap:2px;align-items:flex-end;height:24px}
+.mini-bar{width:5px;border-radius:2px}
+.card-expanded{display:none;padding:0 18px 18px;border-top:1px solid var(--border)}
+.card-expanded.open{display:block}
+.expanded-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
+.exp-stat{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.exp-stat .ev{font-size:1.1rem;font-weight:700;font-family:var(--mono);color:var(--green)}
+.exp-stat .el{font-size:.7rem;color:var(--muted);margin-top:3px}
+.history-bars{display:flex;gap:3px;align-items:flex-end;height:50px;margin:14px 0}
+.h-bar{flex:1;border-radius:2px 2px 0 0;min-height:4px}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.edit-row{display:flex;gap:8px;margin-top:12px}
+.edit-row input{flex:1;background:#0f1826;border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.83rem;font-family:var(--mono)}
+.edit-row input:focus{outline:none;border-color:var(--green)}
+.incidents-list{display:grid;gap:10px}
+.incident-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.incident-card.ongoing{border-color:rgba(239,68,68,.3)}
+.incident-icon{font-size:1.4rem}
+.incident-info{flex:1;min-width:0}
+.incident-name{font-weight:600;font-size:.9rem;margin-bottom:3px}
+.incident-url{font-size:.73rem;color:var(--muted);font-family:var(--mono)}
+.incident-time{font-size:.73rem;color:var(--muted2);margin-top:3px}
+.incident-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.inc-badge{padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700}
+.inc-badge.ongoing{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.inc-badge.resolved{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.2)}
+.inc-duration{font-size:.73rem;color:var(--muted2);font-family:var(--mono)}
+.incidents-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.analytics-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.ana-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.ana-card .icon{font-size:1.6rem;margin-bottom:10px}
+.ana-card .av{font-size:1.8rem;font-weight:700;font-family:var(--mono);margin-bottom:4px}
+.ana-card .al{font-size:.78rem;color:var(--muted)}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.chart-title{font-size:.9rem;font-weight:600;margin-bottom:16px}
+.chart-bars{display:flex;gap:4px;align-items:flex-end;height:110px;overflow-x:auto;padding-bottom:4px}
+.ch-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:24px}
+.ch-bar{width:18px;border-radius:3px 3px 0 0}
+.alerts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.alert-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.alert-card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.alert-icon{font-size:1.4rem}
+.alert-name{font-weight:600;font-size:.95rem}
+.alert-status{font-size:.7rem;padding:2px 8px;border-radius:10px;margin-top:2px;display:inline-block}
+.alert-status.active{background:rgba(0,255,136,.1);color:var(--green)}
+.alert-status.inactive{background:rgba(100,116,139,.15);color:var(--muted)}
+.alert-desc{font-size:.78rem;color:var(--muted);line-height:1.5}
+.status-preview{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:600px}
+.status-overall{display:flex;align-items:center;gap:10px;padding:14px;border-radius:10px;margin-bottom:16px}
+.status-overall.op{background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2)}
+.status-overall.deg{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2)}
+.status-monitors{display:grid;gap:8px}
+.status-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2);border-radius:8px}
+.copy-url-row{display:flex;gap:10px;margin-top:20px;align-items:center;flex-wrap:wrap}
+.copy-url-row input{flex:1;background:#0f1826;border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--muted2);font-size:.8rem;font-family:var(--mono)}
+.empty{text-align:center;padding:60px 20px}
+.empty-icon{font-size:3rem;margin-bottom:12px;opacity:.4}
+.empty-text{color:var(--muted);font-size:.9rem}
+#toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.toast{padding:12px 18px;border-radius:10px;font-size:.85rem;font-weight:500;display:flex;align-items:center;gap:8px;animation:slide-in .3s ease;border:1px solid;max-width:340px}
+.toast.success{background:#0f2a1a;color:var(--green);border-color:rgba(0,255,136,.3)}
+.toast.error{background:#2a0f0f;color:var(--red);border-color:rgba(239,68,68,.3)}
+.toast.info{background:#0f1a2a;color:var(--blue);border-color:rgba(59,130,246,.3)}
+@keyframes slide-in{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.loading{display:inline-block;width:13px;height:13px;border:2px solid rgba(0,255,136,.3);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.section-title{font-size:1.05rem;font-weight:600}
+@media(max-width:640px){
+  .navbar{padding:0 14px;height:56px}
+  .logo-text{font-size:1.1rem}
+  .main{padding:14px}
+  .stats-bar{padding:12px 14px;gap:10px}
+  .tabs{padding:0 10px}
+  .tab-btn{padding:12px 12px;font-size:.78rem}
+  .card-header{padding:12px 14px}
+  .card-meta{gap:6px}
+}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="logo"><div class="logo-dot"></div><div class="logo-text">Raza<span>Monitor</span></div></div>
+  <div class="nav-right">
+    <span class="last-check" id="last-check-time">—</span>
+    <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Export</button>
+    <button class="btn btn-primary btn-sm" onclick="toggleAddForm()">+ Add Monitor</button>
+  </div>
+</nav>
+
+<div class="stats-bar">
+  <div class="stat-pill"><div class="val" id="stat-total">—</div><div class="lbl">Total</div></div>
+  <div class="stat-pill up"><div class="val" id="stat-up">—</div><div class="lbl">Up</div></div>
+  <div class="stat-pill down"><div class="val" id="stat-down">—</div><div class="lbl">Down</div></div>
+  <div class="stat-pill paused"><div class="val" id="stat-paused">—</div><div class="lbl">Paused</div></div>
+  <div class="stat-pill"><div class="val" id="stat-uptime">—</div><div class="lbl">Avg Uptime</div></div>
+  <div class="overall-status all-up" id="overall-status">
+    <div class="pulse-dot green" id="overall-dot"></div>
+    <span id="overall-text">Loading…</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('monitors',this)">📡 Monitors</button>
+  <button class="tab-btn" onclick="switchTab('incidents',this)">🚨 Incidents</button>
+  <button class="tab-btn" onclick="switchTab('analytics',this)">📊 Analytics</button>
+  <button class="tab-btn" onclick="switchTab('alerts',this)">🔔 Alerts</button>
+  <button class="tab-btn" onclick="switchTab('statuspage',this)">🌐 Status Page</button>
+</div>
+
+<div class="main">
+  <div class="add-form" id="add-form">
+    <div class="form-title">➕ Add New Monitor</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Monitor Name</label><input type="text" id="f-name" placeholder="My Website"/></div>
+      <div class="form-group"><label>URL</label><input type="url" id="f-url" placeholder="https://example.com"/></div>
+      <div class="form-group"><label>Type</label><select id="f-type"><option value="HTTP">HTTP</option><option value="KEYWORD">KEYWORD</option></select></div>
+      <div class="form-group"><label>Interval</label><select id="f-interval"><option value="1">1 min</option><option value="5" selected>5 min</option><option value="10">10 min</option><option value="30">30 min</option><option value="60">60 min</option></select></div>
+      <div class="form-group"><label>Alert Email (optional)</label><input type="email" id="f-email" placeholder="alerts@example.com"/></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addMonitor()">Add Monitor</button>
+      <button class="btn btn-outline" onclick="toggleAddForm()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="tab-content active" id="tab-monitors">
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('up',this)">🟢 Up</button>
+      <button class="filter-btn" onclick="setFilter('down',this)">🔴 Down</button>
+      <button class="filter-btn" onclick="setFilter('paused',this)">⏸ Paused</button>
+      <input class="search-input" type="text" placeholder="Search…" oninput="renderMonitors()"/>
+    </div>
+    <div class="monitors-grid" id="monitors-list"></div>
+  </div>
+
+  <div class="tab-content" id="tab-incidents">
+    <div class="incidents-toolbar"><div class="section-title">Incident History</div><button class="btn btn-outline btn-sm" onclick="clearIncidents()">🗑 Clear All</button></div>
+    <div class="incidents-list" id="incidents-list"></div>
+  </div>
+
+  <div class="tab-content" id="tab-analytics">
+    <div class="analytics-cards" id="analytics-cards"></div>
+    <div class="chart-card"><div class="chart-title">Response Time — Last 20 Checks</div><div id="analytics-chart"></div></div>
+  </div>
+
+  <div class="tab-content" id="tab-alerts">
+    <div class="section-header"><div class="section-title">Alert Channels</div></div>
+    <div class="alerts-grid">
+      <div class="alert-card"><div class="alert-card-header"><div class="alert-icon">📧</div><div><div class="alert-name">Email (Gmail)</div><div class="alert-status active">Active</div></div></div><div class="alert-desc">Alerts sent to the email you add per monitor. Gmail SMTP is configured and ready.</div></div>
+      <div class="alert-card"><div class="alert-card-header"><div class="alert-icon">💬</div><div><div class="alert-name">Slack</div><div class="alert-status inactive">Coming Soon</div></div></div><div class="alert-desc">Slack webhook integration — add your webhook URL in server code to enable.</div></div>
+      <div class="alert-card"><div class="alert-card-header"><div class="alert-icon">📱</div><div><div class="alert-name">Telegram</div><div class="alert-status inactive">Coming Soon</div></div></div><div class="alert-desc">Telegram bot alerts — configure bot token and chat ID in server.</div></div>
+      <div class="alert-card"><div class="alert-card-header"><div class="alert-icon">🎮</div><div><div class="alert-name">Discord</div><div class="alert-status inactive">Coming Soon</div></div></div><div class="alert-desc">Discord webhook — drop webhook URL to enable rich embed alerts.</div></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-statuspage">
+    <div class="section-header"><div class="section-title">Public Status Page</div></div>
+    <div class="status-preview">
+      <div style="font-size:1.2rem;font-weight:700;margin-bottom:4px">RazaMonitor Status</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:16px">Live system status</div>
+      <div class="status-overall op" id="status-overall-row"><div class="pulse-dot green"></div><span id="status-overall-label">All systems operational</span></div>
+      <div class="status-monitors" id="status-monitors-list"></div>
+      <div class="copy-url-row"><input type="text" id="status-url-input" readonly/><button class="btn btn-outline btn-sm" onclick="copyStatusUrl()">📋 Copy URL</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+const BASE='/api';
+let monitors=[],incidents=[],currentFilter='all';
+
+document.addEventListener('DOMContentLoaded',()=>{
+  loadAll();
+  setInterval(loadAll,30000);
+  document.getElementById('status-url-input').value=window.location.origin+BASE+'/status';
+});
+
+async function loadAll(){
+  await Promise.all([loadMonitors(),loadStats(),loadIncidents()]);
+  renderAnalytics();renderStatusPage();
+  document.getElementById('last-check-time').textContent='Updated '+new Date().toLocaleTimeString();
+}
+
+async function loadMonitors(){
+  try{monitors=await(await fetch(BASE+'/monitors')).json();renderMonitors();}
+  catch(e){showToast('Failed to load monitors','error');}
+}
+
+function renderMonitors(){
+  const c=document.getElementById('monitors-list');
+  const search=document.querySelector('.search-input')?.value?.toLowerCase()||'';
+  const filtered=monitors.filter(m=>{
+    if(currentFilter==='up'&&m.status!=='up')return false;
+    if(currentFilter==='down'&&m.status!=='down')return false;
+    if(currentFilter==='paused'&&!m.paused)return false;
+    if(search&&!m.name.toLowerCase().includes(search)&&!m.url.toLowerCase().includes(search))return false;
+    return true;
+  });
+  if(!filtered.length){c.innerHTML=`<div class="empty"><div class="empty-icon">📡</div><div class="empty-text">${monitors.length===0?'No monitors yet. Add your first one!':'No monitors match your filter.'}</div></div>`;return;}
+  c.innerHTML=filtered.map(m=>buildCard(m)).join('');
+}
+
+function buildCard(m){
+  const sc=m.paused?'paused':(m.status||'checking');
+  const bt=(m.paused?'PAUSED':(m.status||'CHECKING')).toUpperCase();
+  const hist=m.history||[];
+  const last10=hist.slice(-10);
+  const mx10=Math.max(...last10.map(h=>h.response||1),1);
+  const miniBars=last10.map(h=>{const ht=h.response>0?Math.max(4,Math.round((h.response/mx10)*22)):4;return`<div class="mini-bar" style="height:${ht}px;background:${h.status==='up'?'var(--green)':'var(--red)'}"></div>`;}).join('');
+  const mxAll=Math.max(...hist.map(h=>h.response||1),1);
+  const hBars=hist.map(h=>{const ht=h.response>0?Math.max(4,Math.round((h.response/mxAll)*46)):4;return`<div class="h-bar" style="height:${ht}px;background:${h.status==='up'?'var(--green)':'var(--red)'}" title="${h.status}|${h.response}ms|${new Date(h.time).toLocaleTimeString()}"></div>`;}).join('');
+  const avg=hist.length>0?Math.round(hist.reduce((s,h)=>s+(h.response||0),0)/hist.length):0;
+  const mn=hist.length>0?Math.min(...hist.map(h=>h.response||9999).filter(v=>v<9999)):0;
+  const mx=hist.length>0?Math.max(...hist.map(h=>h.response||0)):0;
+  return`<div class="monitor-card${m.status==='down'?' is-down':''}" id="card-${m.id}">
+  <div class="card-header" onclick="toggleExpand('${m.id}')">
+    <div class="card-pulse ${sc}"></div>
+    <div class="card-info"><div class="card-name">${esc(m.name)}</div><div class="card-url">${esc(m.url)}</div></div>
+    <div class="card-meta">
+      <span class="badge ${sc}">${bt}</span>
+      <span class="card-uptime">Uptime <span>${(m.uptime||100).toFixed(1)}%</span></span>
+      <span class="card-response">${m.lastResponse>0?`<span>${m.lastResponse}ms</span>`:'<span style="color:var(--muted)">—</span>'}</span>
+      <div class="mini-bars">${miniBars||'<span style="font-size:.6rem;color:var(--muted)">—</span>'}</div>
+    </div>
+  </div>
+  <div class="card-expanded" id="expanded-${m.id}">
+    <div class="expanded-grid">
+      <div class="exp-stat"><div class="ev">${avg>0?avg+'ms':'—'}</div><div class="el">Avg Response</div></div>
+      <div class="exp-stat"><div class="ev">${mn>0&&mn<9999?mn+'ms':'—'}</div><div class="el">Min Response</div></div>
+      <div class="exp-stat"><div class="ev">${mx>0?mx+'ms':'—'}</div><div class="el">Max Response</div></div>
+      <div class="exp-stat"><div class="ev">${m.checks||0}</div><div class="el">Total Checks</div></div>
+      <div class="exp-stat"><div class="ev">${m.lastStatusCode||'—'}</div><div class="el">HTTP Code</div></div>
+      <div class="exp-stat"><div class="ev">${m.lastChecked?timeAgo(m.lastChecked):'—'}</div><div class="el">Last Checked</div></div>
+    </div>
+    <div style="font-size:.73rem;color:var(--muted);margin-bottom:6px">Last 30 checks:</div>
+    <div class="history-bars">${hBars||'<span style="font-size:.75rem;color:var(--muted);padding:10px">No history yet</span>'}</div>
+    <div class="edit-row"><input type="text" id="edit-url-${m.id}" value="${esc(m.url)}"/><button class="btn btn-outline btn-sm" onclick="updateUrl('${m.id}')">Save</button></div>
+    <div class="card-actions">
+      <button class="btn btn-outline btn-sm" id="check-btn-${m.id}" onclick="checkMonitor('${m.id}')">🔍 Check Now</button>
+      <button class="btn btn-outline btn-sm" onclick="togglePause('${m.id}')">${m.paused?'▶ Resume':'⏸ Pause'}</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteMonitor('${m.id}')">🗑 Delete</button>
+    </div>
+  </div>
+</div>`;
+}
+
+function toggleExpand(id){document.getElementById('expanded-'+id)?.classList.toggle('open')}
+function toggleAddForm(){document.getElementById('add-form').classList.toggle('open')}
+
+async function addMonitor(){
+  const name=document.getElementById('f-name').value.trim(),url=document.getElementById('f-url').value.trim();
+  const type=document.getElementById('f-type').value,intv=document.getElementById('f-interval').value,email=document.getElementById('f-email').value.trim();
+  if(!name||!url)return showToast('Name and URL required','error');
+  if(!url.startsWith('http://')&&!url.startsWith('https://'))return showToast('URL must start with http:// or https://','error');
+  try{
+    const res=await fetch(BASE+'/monitors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,url,type,interval:parseInt(intv),alertEmail:email})});
+    const data=await res.json();
+    if(!res.ok)return showToast(data.error||'Failed','error');
+    showToast('Monitor added!','success');
+    ['f-name','f-url','f-email'].forEach(id=>document.getElementById(id).value='');
+    toggleAddForm();await loadAll();
+  }catch(e){showToast('Error: '+e.message,'error')}
+}
+
+async function deleteMonitor(id){
+  if(!confirm('Delete this monitor?'))return;
+  await fetch(BASE+'/monitors/'+id,{method:'DELETE'});
+  showToast('Monitor deleted','info');await loadAll();
+}
+
+async function checkMonitor(id){
+  const btn=document.getElementById('check-btn-'+id);
+  if(btn){btn.innerHTML='<span class="loading"></span> Checking…';btn.disabled=true}
+  try{
+    const data=await(await fetch(BASE+'/monitors/'+id+'/check')).json();
+    if(data.status==='up')showToast('✅ UP — '+data.responseTime+'ms','success');
+    else if(data.status==='down')showToast('🔴 DOWN — '+(data.error||'No response'),'error');
+    else showToast(data.message||'Checked','info');
+    await loadAll();
+  }catch(e){showToast('Check failed','error')}
+  finally{if(btn){btn.innerHTML='🔍 Check Now';btn.disabled=false}}
+}
+
+async function togglePause(id){
+  const data=await(await fetch(BASE+'/monitors/'+id+'/pause',{method:'POST'})).json();
+  showToast(data.paused?'Monitor paused':'Monitor resumed','info');await loadAll();
+}
+
+async function updateUrl(id){
+  const newUrl=document.getElementById('edit-url-'+id).value.trim();
+  if(!newUrl)return showToast('URL cannot be empty','error');
+  const m=monitors.find(x=>x.id===id);if(!m)return;
+  try{
+    await fetch(BASE+'/monitors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...m,url:newUrl})});
+    showToast('URL updated','success');await loadAll();
+  }catch(e){showToast('Update failed','error')}
+}
+
+async function loadStats(){
+  try{
+    const d=await(await fetch(BASE+'/stats')).json();
+    document.getElementById('stat-total').textContent=d.total??0;
+    document.getElementById('stat-up').textContent=d.up??0;
+    document.getElementById('stat-down').textContent=d.down??0;
+    document.getElementById('stat-paused').textContent=d.paused??0;
+    document.getElementById('stat-uptime').textContent=(d.avgUptime??0).toFixed(1)+'%';
+    const dot=document.getElementById('overall-dot'),txt=document.getElementById('overall-text'),bar=document.getElementById('overall-status');
+    if(d.down>0){dot.className='pulse-dot red';txt.textContent=d.down+' monitor'+(d.down>1?'s':'')+' down';bar.className='overall-status has-down';}
+    else{dot.className='pulse-dot green';txt.textContent='All systems up';bar.className='overall-status all-up';}
+  }catch(e){}
+}
+
+async function loadIncidents(){
+  try{incidents=await(await fetch(BASE+'/incidents')).json();renderIncidents();}catch(e){}
+}
+
+function renderIncidents(){
+  const c=document.getElementById('incidents-list');
+  if(!incidents?.length){c.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No incidents — all good!</div></div>';return;}
+  c.innerHTML=incidents.map(i=>`<div class="incident-card ${i.status==='ongoing'?'ongoing':''}">
+    <div class="incident-icon">${i.status==='ongoing'?'🔴':'✅'}</div>
+    <div class="incident-info"><div class="incident-name">${esc(i.monitorName)}</div><div class="incident-url">${esc(i.monitorUrl)}</div><div class="incident-time">Started: ${new Date(i.startTime).toLocaleString()}${i.endTime?' • Resolved: '+new Date(i.endTime).toLocaleString():''}</div></div>
+    <div class="incident-meta"><span class="inc-badge ${i.status}">${i.status.toUpperCase()}</span><span class="inc-duration">${i.duration||(i.status==='ongoing'?'Ongoing…':'—')}</span></div>
+  </div>`).join('');
+}
+
+async function clearIncidents(){
+  if(!confirm('Clear all incidents?'))return;
+  await fetch(BASE+'/incidents',{method:'DELETE'});
+  showToast('Incidents cleared','info');await loadIncidents();
+}
+
+function renderAnalytics(){
+  const tc=monitors.reduce((s,m)=>s+(m.checks||0),0);
+  const au=monitors.length>0?(monitors.reduce((s,m)=>s+(m.uptime||0),0)/monitors.length).toFixed(1):0;
+  const activeM=monitors.filter(m=>m.lastResponse>0);
+  const ar=activeM.length>0?Math.round(activeM.reduce((s,m)=>s+m.lastResponse,0)/activeM.length):0;
+  document.getElementById('analytics-cards').innerHTML=`
+    <div class="ana-card"><div class="icon">🔍</div><div class="av" style="color:var(--blue)">${tc.toLocaleString()}</div><div class="al">Total Checks</div></div>
+    <div class="ana-card"><div class="icon">📈</div><div class="av" style="color:var(--green)">${au}%</div><div class="al">Average Uptime</div></div>
+    <div class="ana-card"><div class="icon">⚡</div><div class="av" style="color:var(--yellow)">${ar>0?ar+'ms':'—'}</div><div class="al">Avg Response</div></div>
+    <div class="ana-card"><div class="icon">🚨</div><div class="av" style="color:var(--red)">${incidents.length}</div><div class="al">Total Incidents</div></div>`;
+  const chart=document.getElementById('analytics-chart');
+  if(!monitors.length){chart.innerHTML='<div class="empty" style="padding:30px"><div class="empty-text">Add monitors to see charts</div></div>';return;}
+  chart.innerHTML=monitors.map(m=>{
+    if(!m.history?.length)return'';
+    const mx=Math.max(...m.history.map(h=>h.response||0),1);
+    const bars=m.history.slice(-20).map(h=>{const ht=h.response>0?Math.max(4,Math.round((h.response/mx)*105)):4;return`<div class="ch-bar-wrap"><div class="ch-bar" style="height:${ht}px;background:${h.status==='up'?'var(--green)':'var(--red)'}" title="${h.response}ms"></div></div>`;}).join('');
+    return`<div style="margin-bottom:20px"><div style="font-size:.78rem;font-weight:600;margin-bottom:8px;color:var(--muted2)">${esc(m.name)}</div><div class="chart-bars">${bars}</div></div>`;
+  }).join('');
+}
+
+function renderStatusPage(){
+  const allUp=!monitors.length||monitors.every(m=>m.status==='up'||m.paused);
+  document.getElementById('status-overall-row').className='status-overall '+(allUp?'op':'deg');
+  document.getElementById('status-overall-label').textContent=allUp?'✅ All systems operational':'⚠️ Some systems degraded';
+  document.getElementById('status-monitors-list').innerHTML=monitors.map(m=>`<div class="status-row"><div><div style="font-size:.85rem;font-weight:500">${esc(m.name)}</div><div style="font-size:.73rem;color:var(--muted)">Uptime: ${(m.uptime||100).toFixed(1)}%</div></div><span class="badge ${m.paused?'paused':(m.status||'checking')}">${(m.paused?'PAUSED':(m.status||'checking')).toUpperCase()}</span></div>`).join('')||'<div style="text-align:center;padding:20px;color:var(--muted);font-size:.85rem">No monitors added yet</div>';
+}
+
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderMonitors();}
+function switchTab(name,btn){document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+name).classList.add('active');btn.classList.add('active');}
+function exportData(){const blob=new Blob([JSON.stringify({monitors,incidents,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='razamonitor-export.json';a.click();showToast('Exported!','success');}
+function copyStatusUrl(){document.getElementById('status-url-input').select();document.execCommand('copy');showToast('URL copied!','success');}
+function showToast(msg,type='info'){const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),3500);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function timeAgo(ts){const d=Date.now()-ts;if(d<60000)return Math.round(d/1000)+'s ago';if(d<3600000)return Math.round(d/60000)+'m ago';return Math.round(d/3600000)+'h ago';}
+</script>
+</body>
+</html>
